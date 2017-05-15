@@ -1,3 +1,7 @@
+
+
+from . import exporters
+
 RESOURCES = [
     {
         'name': 'accessrights',

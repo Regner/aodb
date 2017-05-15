@@ -1,9 +1,9 @@
 
 
 import re
+import xml.etree.ElementTree as ET
 
 from abc import ABCMeta, abstractmethod
-from xml.dom import minidom
 
 
 class BaseExporter(metaclass=ABCMeta):
@@ -23,24 +23,21 @@ class BaseExporter(metaclass=ABCMeta):
         self.export_file = export_file
 
     @staticmethod
-    def _clean_input(input: str) -> str:
+    def _clean_input(dirty_input: str) -> str:
         """Cleans the string that was loaded from the input file.
         
-        :param input: The raw string from the source file to be cleaned.
+        :param dirty_input: The raw string from the source file to be cleaned.
         """
 
         pattern = re.compile(r'string m_Script = "(.*)"\n 1 string')
-        search = re.search(pattern, input)
+        search = re.search(pattern, dirty_input)
 
         dirty_xml = search.group(1)
 
         clean_xml = re.sub(r'\\r\\n\s*', ' ', dirty_xml)
         clean_xml = re.sub(r'\\n\s*', ' ', clean_xml)
 
-        parsed_xml = minidom.parseString(clean_xml)
-        pretty_xml = parsed_xml.toprettyxml(indent='\t')
-
-        return pretty_xml
+        return clean_xml
 
     def _load_input(self):
         """Loads and caches the input file specified when originally instantiated."""
@@ -58,3 +55,7 @@ class BaseExporter(metaclass=ABCMeta):
         """Generates the actual export."""
         self._load_input()
         self._generate_export()
+
+    def get_xml_root(self):
+        """Parses the self.input string into an ElementTree root"""
+        return ET.fromstring(self.input)

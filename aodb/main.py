@@ -1,14 +1,15 @@
 
 
+import shutil
 import tarfile
 
-from os import mkdir, listdir
+from os import makedirs, listdir
 from os.path import exists, isfile, join
 from google.cloud import storage
 from collections import defaultdict
 
 from . import exporters
-from.resources import RESOURCES
+from .resources import RESOURCES
 
 
 DEFAULT_INPUT = 'inputs/'
@@ -29,13 +30,17 @@ def get_output_path(name: str, version: str, output_folder) -> str:
     return join(output_folder, file_name)
 
 
+def run_exporter(exporter, input_path: str, output_path: str):
+    exporter(input_path, output_path).generate_export()
+
+
 def generate_exports(version: str):
     """Generates the database conversions."""
     print('Generating exports...')
 
     output_folder = get_output_version_folder(version)
     if not exists(output_folder):
-        mkdir(output_folder)
+        makedirs(output_folder)
 
     for resource in RESOURCES:
         name = resource['name']
@@ -44,8 +49,11 @@ def generate_exports(version: str):
         input_path = get_input_path(name)
         output_path = get_output_path(name, version, output_folder)
 
-        exporters.XMLExporter(input_path, output_path).generate_export()
-        exporters.JSONExporter(input_path, output_path).generate_export()
+        for exporter in exporters.base_exporters:
+            run_exporter(exporter, input_path, output_path)
+
+        for exporter in resource['custom_exporters']:
+            run_exporter(exporter, input_path, output_path)
 
 
 def compress_exports(version: str):
@@ -92,3 +100,20 @@ def upload_exports(version: str, bucket_name: str):
             with open(full_path, 'rb') as in_file:
                 print(f'Uploading {full_path} to {bucket_name}...')
                 blob.upload_from_file(in_file)
+
+
+def clean_output_folder():
+    """Removes the contents of the output folder."""
+    if exists(DEFAULT_OUTPUT):
+        shutil.rmtree(DEFAULT_OUTPUT)
+
+
+def generate_basic_scheme():
+    for resource in RESOURCES:
+        name = resource['name']
+        print(f'Creating basic scheme for {name}...')
+
+        input_path = get_input_path(name)
+
+        exporter = exporters.JSONExporter(input_path, '')
+        exporter.generate_basic_scheme()
